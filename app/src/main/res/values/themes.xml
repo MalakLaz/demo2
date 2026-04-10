@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.MallAR" parent="android:Theme.Material.Light.NoActionBar">
+
+        <!-- 🔥 ده الحل -->
+        <item name="android:windowBackground">@android:color/black</item>
+
+        <!-- Status bar -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+
+    </style>
+
+</resources>

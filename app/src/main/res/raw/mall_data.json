@@ -1,0 +1,210 @@
+{
+  "mall": {
+    "name": "Grand Mall",
+    "floors": 3,
+    "totalStores": 28
+  },
+  "stores": [
+    {
+      "id": "store_001",
+      "name": "H&M",
+      "category": "Fashion",
+      "floor": 1,
+      "wing": "A",
+      "storeNumber": "A-12",
+      "description": "Fashion clothing for men, women & children",
+      "openTime": "10:00",
+      "closeTime": "22:00",
+      "logoColor": "#E50010",
+      "tags": ["clothing", "fashion", "kids", "men", "women"],
+      "navigationNodes": ["entrance", "A_corridor", "A12"]
+    },
+    {
+      "id": "store_002",
+      "name": "Zara",
+      "category": "Fashion",
+      "floor": 1,
+      "wing": "A",
+      "storeNumber": "A-08",
+      "description": "Spanish fashion brand for all styles",
+      "openTime": "10:00",
+      "closeTime": "22:00",
+      "logoColor": "#000000",
+      "tags": ["clothing", "fashion", "trendy", "spanish"],
+      "navigationNodes": ["entrance", "A_corridor", "A08"]
+    },
+    {
+      "id": "store_003",
+      "name": "Pixi",
+      "category": "Cosmetics",
+      "floor": 2,
+      "wing": "B",
+      "storeNumber": "B-05",
+      "description": "Beauty and cosmetics store",
+      "openTime": "10:00",
+      "closeTime": "22:00",
+      "logoColor": "#1B5E20",
+      "tags": ["beauty", "cosmetics", "skincare", "makeup"],
+      "navigationNodes": ["entrance", "escalator_1", "B_corridor", "B05"]
+    },
+    {
+      "id": "store_004",
+      "name": "Nike",
+      "category": "Sport",
+      "floor": 1,
+      "wing": "B",
+      "storeNumber": "B-03",
+      "description": "Sportswear and athletic shoes",
+      "openTime": "10:00",
+      "closeTime": "22:00",
+      "logoColor": "#111111",
+      "tags": ["sport", "shoes", "athletic", "running"],
+      "navigationNodes": ["entrance", "B_corridor", "B03"]
+    },
+    {
+      "id": "store_005",
+      "name": "Adidas",
+      "category": "Sport",
+      "floor": 1,
+      "wing": "B",
+      "storeNumber": "B-07",
+      "description": "Sports clothing and footwear",
+      "openTime": "10:00",
+      "closeTime": "22:00",
+      "logoColor": "#000000",
+      "tags": ["sport", "shoes", "athletic", "lifestyle"],
+      "navigationNodes": ["entrance", "B_corridor", "B07"]
+    },
+    {
+      "id": "store_006",
+      "name": "Starbucks",
+      "category": "Food & Beverage",
+      "floor": 1,
+      "wing": "C",
+      "storeNumber": "C-01",
+      "description": "Coffee shop and beverages",
+      "openTime": "08:00",
+      "closeTime": "23:00",
+      "logoColor": "#00704A",
+      "tags": ["coffee", "drinks", "food", "cafe"],
+      "navigationNodes": ["entrance", "C_corridor", "C01"]
+    },
+    {
+      "id": "store_007",
+      "name": "Apple Store",
+      "category": "Electronics",
+      "floor": 2,
+      "wing": "A",
+      "storeNumber": "A-21",
+      "description": "Apple products and accessories",
+      "openTime": "10:00",
+      "closeTime": "22:00",
+      "logoColor": "#555555",
+      "tags": ["electronics", "phone", "laptop", "tablet", "tech"],
+      "navigationNodes": ["entrance", "escalator_1", "A_corridor_2", "A21"]
+    },
+    {
+      "id": "store_008",
+      "name": "Sephora",
+      "category": "Cosmetics",
+      "floor": 2,
+      "wing": "B",
+      "storeNumber": "B-12",
+      "description": "Luxury beauty and fragrance",
+      "openTime": "10:00",
+      "closeTime": "22:00",
+      "logoColor": "#E76B74",
+      "tags": ["beauty", "fragrance", "luxury", "cosmetics"],
+      "navigationNodes": ["entrance", "escalator_1", "B_corridor", "B12"]
+    },
+    {
+      "id": "store_009",
+      "name": "Levi's",
+      "category": "Fashion",
+      "floor": 1,
+      "wing": "A",
+      "storeNumber": "A-15",
+      "description": "Iconic denim jeans and casual wear",
+      "openTime": "10:00",
+      "closeTime": "22:00",
+      "logoColor": "#C41E3A",
+      "tags": ["jeans", "denim", "casual", "fashion"],
+      "navigationNodes": ["entrance", "A_corridor", "A15"]
+    },
+    {
+      "id": "store_010",
+      "name": "Food Court",
+      "category": "Food & Beverage",
+      "floor": 3,
+      "wing": "C",
+      "storeNumber": "C-31",
+      "description": "Multi-cuisine food court with 15+ restaurants",
+      "openTime": "09:00",
+      "closeTime": "23:00",
+      "logoColor": "#FF6F00",
+      "tags": ["food", "restaurant", "dining", "fast food"],
+      "navigationNodes": ["entrance", "escalator_1", "escalator_2", "C_corridor_3", "C31"]
+    },
+    {
+      "id": "store_011",
+      "name": "Mango",
+      "category": "Fashion",
+      "floor": 1,
+      "wing": "A",
+      "storeNumber": "A-06",
+      "description": "Mediterranean fashion and lifestyle",
+      "openTime": "10:00",
+      "closeTime": "22:00",
+      "logoColor": "#C5A028",
+      "tags": ["fashion", "women", "clothing", "spanish"],
+      "navigationNodes": ["entrance", "A_corridor", "A06"]
+    },
+    {
+      "id": "store_012",
+      "name": "Pandora",
+      "category": "Jewelry",
+      "floor": 2,
+      "wing": "A",
+      "storeNumber": "A-18",
+      "description": "Handcrafted jewelry and charms",
+      "openTime": "10:00",
+      "closeTime": "22:00",
+      "logoColor": "#8B1A4A",
+      "tags": ["jewelry", "charms", "bracelet", "rings"],
+      "navigationNodes": ["entrance", "escalator_1", "A_corridor_2", "A18"]
+    }
+  ],
+  "navigationPaths": {
+    "entrance_to_A_corridor": {
+      "steps": [
+        {"instruction": "Go straight", "distance": 20, "direction": "straight"},
+        {"instruction": "Turn left", "distance": 10, "direction": "left"}
+      ]
+    },
+    "entrance_to_B_corridor": {
+      "steps": [
+        {"instruction": "Go straight", "distance": 15, "direction": "straight"},
+        {"instruction": "Turn right", "distance": 10, "direction": "right"}
+      ]
+    },
+    "escalator_1": {
+      "steps": [
+        {"instruction": "Take escalator to Floor 2", "distance": 5, "direction": "escalator_up"}
+      ]
+    },
+    "escalator_2": {
+      "steps": [
+        {"instruction": "Take escalator to Floor 3", "distance": 5, "direction": "escalator_up"}
+      ]
+    }
+  },
+  "detectedLocations": [
+    {"id": "loc_001", "name": "Main Entrance", "floor": 1, "features": ["large_doors", "info_desk"]},
+    {"id": "loc_002", "name": "Wing A - Ground Floor", "floor": 1, "features": ["H&M", "Zara", "Mango"]},
+    {"id": "loc_003", "name": "Wing B - Ground Floor", "floor": 1, "features": ["Nike", "Adidas"]},
+    {"id": "loc_004", "name": "Escalator Area", "floor": 1, "features": ["escalator", "elevator"]},
+    {"id": "loc_005", "name": "Wing A - Floor 2", "floor": 2, "features": ["Apple Store", "Pandora"]},
+    {"id": "loc_006", "name": "Wing B - Floor 2", "floor": 2, "features": ["Pixi", "Sephora"]},
+    {"id": "loc_007", "name": "Food Court", "floor": 3, "features": ["food_court", "seating"]}
+  ]
+}
