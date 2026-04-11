@@ -10,7 +10,7 @@ class EmbeddingMatcher(context: Context) {
     private val embeddings: List<FloatArray>
     private val labels: List<String>
 
-    private val THRESHOLD = 0.53f
+    private val THRESHOLD = 0.45f
 
     init {
         val json = context.assets.open("data.json")  // ← اسم الملف الجديد

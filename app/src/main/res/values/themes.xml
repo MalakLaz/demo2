@@ -1,16 +1,15 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <style name="Theme.MallAR.Splash" parent="Theme.SplashScreen">
+        <item name="android:windowIsTranslucent">true</item>
 
-    <style name="Theme.MallAR" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="postSplashScreenTheme">@style/Theme.MallAR</item>
+    </style>
 
-        <!-- 🔥 ده الحل -->
-        <item name="android:windowBackground">@android:color/black</item>
-
-        <!-- Status bar -->
+    <style name="Theme.MallAR" parent="Theme.AppCompat.DayNight">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
 
+        <item name="android:windowBackground">@android:color/transparent</item>
     </style>
-
 </resources>
