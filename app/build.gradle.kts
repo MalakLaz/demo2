@@ -74,6 +74,7 @@ dependencies {
     // Permissions
     implementation(libs.accompanist.permissions)
 
+
     // CameraX
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)

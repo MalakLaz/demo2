@@ -16,14 +16,17 @@
         android:label="MallAR"
         android:icon="@drawable/logo_full"
         android:roundIcon="@drawable/logo_full"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.MallAR">
+
+        android:theme="@style/Theme.MallAR.Splash"
+        >
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:screenOrientation="fullSensor"
-            android:windowSoftInputMode="adjustResize">
+
+            android:theme="@style/Theme.MallAR.Splash"
+            android:label="MallAR"
+            >
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

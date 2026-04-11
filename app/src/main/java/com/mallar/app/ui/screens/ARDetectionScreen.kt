@@ -96,7 +96,7 @@ fun ARDetectionScreen(
         // Back button
         Box(
             modifier = Modifier
-                .padding(top = 48.dp, start = 16.dp)
+                .padding(top = 16.dp, start = 16.dp)
                 .size(44.dp)
                 .clip(CircleShape)
                 .background(TealPrimary)
