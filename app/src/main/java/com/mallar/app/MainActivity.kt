@@ -15,7 +15,7 @@ import com.mallar.app.ui.theme.MallARTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-
+ //1111
 class MainActivity : ComponentActivity() {
 
     @RequiresApi(Build.VERSION_CODES.S)
