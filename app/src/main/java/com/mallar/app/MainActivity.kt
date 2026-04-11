@@ -10,6 +10,8 @@ import androidx.navigation.compose.rememberNavController
 import com.mallar.app.navigation.MallARNavGraph
 import com.mallar.app.ui.theme.MallARTheme
 import androidx.compose.ui.Modifier
+
+
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,6 +24,8 @@ class MainActivity : ComponentActivity() {
         setContent {
 
             MallARTheme {
+
+
                 val navController = rememberNavController()
 
                 MallARNavGraph(
