@@ -4,10 +4,13 @@ import android.app.Application
 import android.graphics.Bitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.mallar.app.ml.EmbeddingModel
-import com.mallar.app.ml.EmbeddingMatcher
 import com.mallar.app.data.model.*
+import com.mallar.app.data.repository.GraphRepository
 import com.mallar.app.data.repository.PlacesRepository
+import com.mallar.app.ml.EmbeddingMatcher
+import com.mallar.app.ml.EmbeddingModel
+import com.mallar.app.navigation.MallGraph
+import com.mallar.app.navigation.NavNode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,32 +31,39 @@ data class MallARUiState(
     val detectionConfidence: Float = 0f,
     val currentNavigationStep: Int = 0,
     val navigationSteps: List<ARNavigationStep> = emptyList(),
+    // ── A* path ───────────────────────────────────────────────────────────────
+    val currentPath: List<NavNode> = emptyList(),          // full node list
+    val pathDistanceMeters: Float = 0f,                    // estimated metres
     val currentFloor: Int = 1,
     val hasArrived: Boolean = false,
-    val allStores: List<Store> = emptyList()
+    val allStores: List<Store> = emptyList(),
+    // ── current location (set after AR detection or manual selection) ─────────
+    val currentLocationShopId: Int? = null
 )
 
 class MallARViewModel(application: Application) : AndroidViewModel(application) {
 
     private val placesRepo = PlacesRepository(application)
+    private val graphRepo  = GraphRepository(application)
 
-    // ✅ الموديل
-    private val model by lazy { EmbeddingModel(getApplication()) }
-
-    // ✅ الماتشر
+    private val model   by lazy { EmbeddingModel(getApplication()) }
     private val matcher by lazy { EmbeddingMatcher(getApplication()) }
 
     private val _uiState = MutableStateFlow(MallARUiState())
     val uiState: StateFlow<MallARUiState> = _uiState.asStateFlow()
 
-    init {
-        loadData()
-    }
+    // Cached graph (loaded once on IO thread)
+    private var graph: MallGraph? = null
+
+    init { loadData() }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
 
     private fun loadData() {
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
+                graph = graphRepo.getGraph()
                 _uiState.value = _uiState.value.copy(
                     allStores = placesRepo.getAllAsStores(),
                     isLoading = false
@@ -63,6 +73,8 @@ class MallARViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
     }
+
+    // ── Search ────────────────────────────────────────────────────────────────
 
     fun onSearchQueryChange(query: String) {
         _uiState.value = _uiState.value.copy(searchQuery = query)
@@ -78,81 +90,102 @@ class MallARViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun selectStoreById(storeId: String) {
-        val place = placesRepo.getPlaceById(storeId)
-        place?.let {
-            val steps = placesRepo.getNavigationSteps(it, _uiState.value.currentFloor)
-            _uiState.value = _uiState.value.copy(
-                selectedStore = it.toStore(),
-                navigationSteps = steps,
-                currentNavigationStep = 0,
-                hasArrived = false
-            )
-        }
-    }
+    // ── Store selection + A* ──────────────────────────────────────────────────
 
     fun selectStore(store: Store) {
-        val place = placesRepo.getPlaceById(store.id)
-        if (place != null) {
-            val steps = placesRepo.getNavigationSteps(place, _uiState.value.currentFloor)
-            _uiState.value = _uiState.value.copy(
-                selectedStore = store,
-                navigationSteps = steps,
-                currentNavigationStep = 0,
-                hasArrived = false
-            )
+        viewModelScope.launch(Dispatchers.IO) {
+            val place = placesRepo.getPlaceById(store.id)
+
+            // Find destination shopId from graph shops list
+            val destShopId = graph?.shops
+                ?.find { it.name.equals(store.name, ignoreCase = true) }
+                ?.shopId
+
+            // Compute A* path if we know both locations
+            val fromShopId = _uiState.value.currentLocationShopId
+            val path = if (fromShopId != null && destShopId != null) {
+                graph?.findPathBetweenShops(fromShopId, destShopId)
+            } else null
+
+            val distMeters = if (path != null)
+                (graph?.pathDistance(path) ?: 0f) * 0.05f  // rough px→m scale
+            else 0f
+
+            // Also generate turn-by-turn steps from the path
+            val navSteps = if (path != null)
+                buildNavSteps(path, store.name)
+            else
+                place?.let { placesRepo.getNavigationSteps(it, _uiState.value.currentFloor) }
+                    ?: emptyList()
+
+            withContext(Dispatchers.Main) {
+                _uiState.value = _uiState.value.copy(
+                    selectedStore         = store,
+                    currentPath           = path ?: emptyList(),
+                    pathDistanceMeters    = distMeters,
+                    navigationSteps       = navSteps,
+                    currentNavigationStep = 0,
+                    hasArrived            = false
+                )
+            }
         }
     }
 
-    // 🔥 AR Detection الحقيقي
+    fun selectStoreById(storeId: String) {
+        val place = placesRepo.getPlaceById(storeId)
+        place?.let { selectStore(it.toStore()) }
+    }
+
+    // ── Set current location manually (e.g. user picks "I am at Zara") ────────
+
+    fun setCurrentLocation(shopId: Int) {
+        _uiState.value = _uiState.value.copy(currentLocationShopId = shopId)
+        // Re-run navigation if destination already selected
+        _uiState.value.selectedStore?.let { selectStore(it) }
+    }
+
+    // ── AR Detection ──────────────────────────────────────────────────────────
+
     fun runARDetection(frame: Bitmap) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
-                isDetecting = true,
+                isDetecting     = true,
                 detectionProgress = 0f,
-                detectedLocation = null,
-                detectionError = null
+                detectedLocation  = null,
+                detectionError    = null
             )
 
-            // progress
             for (i in 1..10) {
                 delay(100)
                 _uiState.value = _uiState.value.copy(detectionProgress = i / 10f)
             }
 
             try {
-                // ✅ تشغيل الموديل
-                val embedding = withContext(Dispatchers.Default) {
-                    model.run(frame)
-                }
-
-                // ✅ مطابقة مع الداتابيز
-                val matchName = matcher.findBestMatch(embedding)
+                val embedding  = withContext(Dispatchers.Default) { model.run(frame) }
+                val matchName  = matcher.findBestMatch(embedding)
 
                 val detected = if (matchName != null) {
-                    DetectedLocation(
-                        id = matchName,
-                        name = matchName,
-                        floor = 1,
-                        features = listOf("Detected by AI")
-                    )
+                    DetectedLocation(id = matchName, name = matchName,
+                        floor = 1, features = listOf("Detected by AI"))
                 } else {
-                    DetectedLocation(
-                        id = "unknown",
-                        name = "Unknown مكان غير معروف",
-                        floor = 1,
-                        features = emptyList()
-                    )
+                    DetectedLocation(id = "unknown", name = "Unknown — مكان غير معروف",
+                        floor = 1, features = emptyList())
                 }
 
+                // Try to map detected name → shopId in graph
+                val detectedShopId = graph?.shops
+                    ?.find { it.name.equals(matchName ?: "", ignoreCase = true) }
+                    ?.shopId
+
                 _uiState.value = _uiState.value.copy(
-                    isDetecting = false,
-                    detectedLocation = detected
+                    isDetecting           = false,
+                    detectedLocation      = detected,
+                    currentLocationShopId = detectedShopId ?: _uiState.value.currentLocationShopId
                 )
 
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
-                    isDetecting = false,
+                    isDetecting    = false,
                     detectionError = "Model error: ${e.message}"
                 )
             }
@@ -163,46 +196,122 @@ class MallARViewModel(application: Application) : AndroidViewModel(application) 
         runARDetection(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888))
     }
 
+    fun confirmDetectedLocation() {
+        val detectedShopId = _uiState.value.currentLocationShopId ?: return
+        setCurrentLocation(detectedShopId)
+    }
+
+    // ── Step navigation ───────────────────────────────────────────────────────
+
     fun nextNavigationStep() {
-        val current = _uiState.value.currentNavigationStep
+        val cur   = _uiState.value.currentNavigationStep
         val steps = _uiState.value.navigationSteps
-        if (current < steps.size - 1) {
-            val next = current + 1
+        if (cur < steps.size - 1) {
+            val next      = cur + 1
             val isArrival = steps[next].direction == NavDirection.ARRIVAL
             _uiState.value = _uiState.value.copy(
                 currentNavigationStep = next,
-                hasArrived = isArrival
+                hasArrived            = isArrival
             )
         }
     }
 
     fun previousNavigationStep() {
-        val current = _uiState.value.currentNavigationStep
-        if (current > 0) {
+        val cur = _uiState.value.currentNavigationStep
+        if (cur > 0) {
             _uiState.value = _uiState.value.copy(
-                currentNavigationStep = current - 1,
-                hasArrived = false
+                currentNavigationStep = cur - 1,
+                hasArrived            = false
             )
         }
     }
 
     fun resetNavigation() {
         _uiState.value = _uiState.value.copy(
-            selectedStore = null,
-            navigationSteps = emptyList(),
+            selectedStore         = null,
+            currentPath           = emptyList(),
+            pathDistanceMeters    = 0f,
+            navigationSteps       = emptyList(),
             currentNavigationStep = 0,
-            hasArrived = false,
-            searchQuery = "",
-            searchResults = emptyList()
+            hasArrived            = false,
+            searchQuery           = "",
+            searchResults         = emptyList()
         )
     }
 
     fun clearDetection() {
         _uiState.value = _uiState.value.copy(
-            detectedLocation = null,
-            detectionError = null,
-            isDetecting = false,
+            detectedLocation  = null,
+            detectionError    = null,
+            isDetecting       = false,
             detectionProgress = 0f
         )
     }
+
+    // ── Build turn-by-turn steps from A* node list ────────────────────────────
+
+    private fun buildNavSteps(path: List<NavNode>, destName: String): List<ARNavigationStep> {
+        if (path.size < 2) return listOf(
+            ARNavigationStep("You are already at $destName", 0, NavDirection.ARRIVAL)
+        )
+
+        val steps = mutableListOf<ARNavigationStep>()
+
+        // Group consecutive nodes into segments by direction
+        var segStart = path[0]
+        var segDist  = 0f
+
+        for (i in 1 until path.size) {
+            val prev = path[i - 1]
+            val curr = path[i]
+            segDist += hypot(curr.x - prev.x, curr.y - prev.y)
+
+            val isLast = i == path.size - 1
+
+            // Detect turn at this node (compare incoming vs outgoing angle)
+            val turn = if (!isLast) {
+                val next = path[i + 1]
+                detectTurn(prev, curr, next)
+            } else null
+
+            if (turn != null || isLast) {
+                val metres = (segDist * 0.05f).toInt().coerceAtLeast(1)
+                val dir = when (turn) {
+                    "LEFT"  -> NavDirection.LEFT
+                    "RIGHT" -> NavDirection.RIGHT
+                    else    -> NavDirection.STRAIGHT
+                }
+                val instruction = when {
+                    isLast -> "You have arrived at $destName"
+                    turn == "LEFT"  -> "Turn left (${metres}m)"
+                    turn == "RIGHT" -> "Turn right (${metres}m)"
+                    else            -> "Continue straight (${metres}m)"
+                }
+                steps.add(ARNavigationStep(
+                    instruction = instruction,
+                    distance    = metres,
+                    direction   = if (isLast) NavDirection.ARRIVAL else dir
+                ))
+                segStart = curr
+                segDist  = 0f
+            }
+        }
+
+        return steps
+    }
+
+    private fun detectTurn(prev: NavNode, curr: NavNode, next: NavNode): String? {
+        val inAngle  = Math.toDegrees(Math.atan2((curr.y - prev.y).toDouble(), (curr.x - prev.x).toDouble()))
+        val outAngle = Math.toDegrees(Math.atan2((next.y - curr.y).toDouble(), (next.x - curr.x).toDouble()))
+        var diff = outAngle - inAngle
+        while (diff > 180) diff -= 360
+        while (diff < -180) diff += 360
+        return when {
+            diff > 30  -> "RIGHT"
+            diff < -30 -> "LEFT"
+            else       -> null
+        }
+    }
+
+    private fun hypot(dx: Float, dy: Float) = kotlin.math.hypot(dx, dy)
 }
