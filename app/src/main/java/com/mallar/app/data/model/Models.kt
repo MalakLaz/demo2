@@ -98,7 +98,8 @@ data class ARNavigationStep(
     val instruction: String,
     val distance: Int,
     val direction: NavDirection,
-    val isFloorChange: Boolean = false
+    val isFloorChange: Boolean = false,
+    val pathAngle: Float = 0f
 )
 
 // ─── Helper: convert a Place → Store (so existing UI works unchanged) ────────

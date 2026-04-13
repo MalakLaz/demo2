@@ -38,7 +38,9 @@ data class MallARUiState(
     val hasArrived: Boolean = false,
     val allStores: List<Store> = emptyList(),
     // ── current location (set after AR detection or manual selection) ─────────
-    val currentLocationShopId: Int? = null
+    val currentLocationShopId: Int? = null,
+    // ── sensor orientation ────────────────────────────────────────────────────
+    val deviceAzimuth: Float = 0f
 )
 
 class MallARViewModel(application: Application) : AndroidViewModel(application) {
@@ -96,15 +98,28 @@ class MallARViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch(Dispatchers.IO) {
             val place = placesRepo.getPlaceById(store.id)
 
-            // Find destination shopId from graph shops list
+            // 1. Resolve Destination Graph Point ID
             val destShopId = graph?.shops
                 ?.find { it.name.equals(store.name, ignoreCase = true) }
                 ?.shopId
 
-            // Compute A* path if we know both locations
+            val toPointId = if (destShopId != null) {
+                graph?.pointIdForShop(destShopId)
+            } else {
+                graph?.findNearestNodeId(place?.x ?: 0f, place?.y ?: 0f)
+            }
+
+            // 2. Resolve Starting Graph Point ID
             val fromShopId = _uiState.value.currentLocationShopId
-            val path = if (fromShopId != null && destShopId != null) {
-                graph?.findPathBetweenShops(fromShopId, destShopId)
+            val fromPointId = if (fromShopId != null) {
+                graph?.pointIdForShop(fromShopId)
+            } else {
+                graph?.pointIdForShop(6) // fallback strictly to ZARA point
+            }
+
+            // 3. Compute A* path if we resolved both points 
+            val path = if (fromPointId != null && toPointId != null) {
+                graph?.findPath(fromPointId, toPointId)
             } else null
 
             val distMeters = if (path != null)
@@ -112,7 +127,7 @@ class MallARViewModel(application: Application) : AndroidViewModel(application) 
             else 0f
 
             // Also generate turn-by-turn steps from the path
-            val navSteps = if (path != null)
+            val navSteps = if (path != null && path.size > 1)
                 buildNavSteps(path, store.name)
             else
                 place?.let { placesRepo.getNavigationSteps(it, _uiState.value.currentFloor) }
@@ -127,6 +142,28 @@ class MallARViewModel(application: Application) : AndroidViewModel(application) 
                     currentNavigationStep = 0,
                     hasArrived            = false
                 )
+            }
+        }
+    }
+
+    // ── Physical Sensor bindings ──────────────────────────────────────────────
+    fun updateDeviceAzimuth(azimuth: Float) {
+        _uiState.value = _uiState.value.copy(deviceAzimuth = azimuth)
+    }
+
+    fun onStepDetected() {
+        val state = _uiState.value
+        val steps = state.navigationSteps.toMutableList()
+        val idx = state.currentNavigationStep
+
+        if (idx < steps.size && !state.hasArrived) {
+            val step = steps[idx]
+            if (step.distance > 0) {
+                // Deduct roughly 1 meter per step (standard pedestrian spacing)
+                steps[idx] = step.copy(distance = step.distance - 1)
+                _uiState.value = state.copy(navigationSteps = steps)
+            } else if (step.direction != NavDirection.ARRIVAL) {
+                nextNavigationStep()
             }
         }
     }
@@ -164,23 +201,26 @@ class MallARViewModel(application: Application) : AndroidViewModel(application) 
                 val embedding  = withContext(Dispatchers.Default) { model.run(frame) }
                 val matchName  = matcher.findBestMatch(embedding)
 
+                // Try to map detected name → shopId in graph
+                // Fallback to "ZARA" if no match is found, so the algorithm always has a valid starting point
+                val finalMatchName = matchName ?: "ZARA"
+                
+                val detectedShopId = graph?.shops
+                    ?.find { it.name.equals(finalMatchName, ignoreCase = true) }
+                    ?.shopId ?: 34 // ZARA shopId is 34
+
                 val detected = if (matchName != null) {
                     DetectedLocation(id = matchName, name = matchName,
                         floor = 1, features = listOf("Detected by AI"))
                 } else {
-                    DetectedLocation(id = "unknown", name = "Unknown — مكان غير معروف",
-                        floor = 1, features = emptyList())
+                    DetectedLocation(id = "none", name = "ZARA (Demo Mock)",
+                        floor = 1, features = listOf("Simulated location"))
                 }
-
-                // Try to map detected name → shopId in graph
-                val detectedShopId = graph?.shops
-                    ?.find { it.name.equals(matchName ?: "", ignoreCase = true) }
-                    ?.shopId
 
                 _uiState.value = _uiState.value.copy(
                     isDetecting           = false,
                     detectedLocation      = detected,
-                    currentLocationShopId = detectedShopId ?: _uiState.value.currentLocationShopId
+                    currentLocationShopId = detectedShopId
                 )
 
             } catch (e: Exception) {
@@ -283,14 +323,23 @@ class MallARViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 val instruction = when {
                     isLast -> "You have arrived at $destName"
-                    turn == "LEFT"  -> "Turn left (${metres}m)"
-                    turn == "RIGHT" -> "Turn right (${metres}m)"
-                    else            -> "Continue straight (${metres}m)"
+                    turn == "LEFT"  -> "Turn left"
+                    turn == "RIGHT" -> "Turn right"
+                    else            -> "Continue straight"
                 }
+
+                // Geometric azimuth angle for rendering the 3D rotating compass arrow
+                val dy = curr.y - prev.y
+                val dx = curr.x - prev.x
+                var geometricBearing = Math.toDegrees(Math.atan2(dy.toDouble(), dx.toDouble())).toFloat() + 90f
+                if (geometricBearing < 0) geometricBearing += 360f
+                while (geometricBearing >= 360f) geometricBearing -= 360f
+
                 steps.add(ARNavigationStep(
                     instruction = instruction,
                     distance    = metres,
-                    direction   = if (isLast) NavDirection.ARRIVAL else dir
+                    direction   = if (isLast) NavDirection.ARRIVAL else dir,
+                    pathAngle   = geometricBearing
                 ))
                 segStart = curr
                 segDist  = 0f

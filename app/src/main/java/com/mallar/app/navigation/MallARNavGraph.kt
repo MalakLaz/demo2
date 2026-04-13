@@ -117,6 +117,7 @@ fun MallARNavGraph(
                 currentStepIndex = uiState.currentNavigationStep,
                 onNextStep = { viewModel.nextNavigationStep() },
                 onPreviousStep = { viewModel.previousNavigationStep() },
+                onStepDetected = { viewModel.onStepDetected() },
                 onBack = {
                     viewModel.resetNavigation()
                     navController.navigateUp()

@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -23,6 +24,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.content.Context
 import com.google.accompanist.permissions.*
 import com.mallar.app.data.model.*
 import com.mallar.app.ui.theme.*
@@ -35,15 +42,56 @@ fun ARNavigationScreen(
     currentStepIndex: Int,
     onNextStep: () -> Unit,
     onPreviousStep: () -> Unit,
+    onStepDetected: () -> Unit,
     onBack: () -> Unit
 ) {
     val cameraPermission = rememberPermissionState(Manifest.permission.CAMERA)
-    val currentStep = navigationSteps.getOrNull(currentStepIndex)
-    val isFloorChange = currentStep?.isFloorChange == true
+    
+    // Activity Recognition permission (needed for step detector on API 29+)
+    val activityPermission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+        rememberPermissionState(Manifest.permission.ACTIVITY_RECOGNITION)
+    } else null
 
     LaunchedEffect(Unit) {
         if (!cameraPermission.status.isGranted) cameraPermission.launchPermissionRequest()
+        if (activityPermission?.status?.isGranted == false) activityPermission.launchPermissionRequest()
     }
+
+    val context = LocalContext.current
+    var deviceAzimuth by remember { mutableStateOf(0f) }
+
+    DisposableEffect(Unit) {
+        val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        val rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+        val stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
+
+        val listener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent?) {
+                if (event?.sensor?.type == Sensor.TYPE_ROTATION_VECTOR) {
+                    val rotationMatrix = FloatArray(9)
+                    SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+                    val orientation = FloatArray(3)
+                    SensorManager.getOrientation(rotationMatrix, orientation)
+                    var azimuthDegrees = Math.toDegrees(orientation[0].toDouble()).toFloat()
+                    if (azimuthDegrees < 0) azimuthDegrees += 360f
+                    deviceAzimuth = azimuthDegrees
+                } else if (event?.sensor?.type == Sensor.TYPE_STEP_DETECTOR) {
+                    onStepDetected()
+                }
+            }
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+
+        rotationSensor?.let { sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
+        stepSensor?.let { sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_FASTEST) }
+
+        onDispose {
+            sensorManager.unregisterListener(listener)
+        }
+    }
+
+    val currentStep = navigationSteps.getOrNull(currentStepIndex)
+    val isFloorChange = currentStep?.isFloorChange == true
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Camera background
@@ -62,9 +110,11 @@ fun ARNavigationScreen(
 
         // AR Arrow overlay on "floor"
         currentStep?.let { step ->
+            val rotationOff = (step.pathAngle - deviceAzimuth)
             ARArrowOverlay(
                 direction = step.direction,
                 isFloorChange = step.isFloorChange,
+                dynamicRotation = rotationOff,
                 modifier = Modifier.align(Alignment.Center)
             )
         }
@@ -130,6 +180,7 @@ fun ARNavigationScreen(
 fun ARArrowOverlay(
     direction: NavDirection,
     isFloorChange: Boolean,
+    dynamicRotation: Float,
     modifier: Modifier = Modifier
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "arrow")
@@ -157,12 +208,16 @@ fun ARArrowOverlay(
         label = "a3"
     )
 
-    val rotation = when (direction) {
+    // Blend the logical directional rotation with the real-world compass spin!
+    val baseRotation = when (direction) {
         NavDirection.LEFT -> -45f
         NavDirection.RIGHT -> 45f
         NavDirection.ESCALATOR_UP, NavDirection.ELEVATOR -> 0f
         else -> 0f
     }
+    
+    // Target combined rotation 
+    val continuousRotation = baseRotation + dynamicRotation
 
     if (direction == NavDirection.ARRIVAL) return
 
@@ -172,9 +227,9 @@ fun ARArrowOverlay(
         verticalArrangement = Arrangement.spacedBy((-16).dp)
     ) {
         // Three cascading arrows
-        ARArrow(alpha = alpha3, scale = 0.5f, rotation = rotation)
-        ARArrow(alpha = alpha2, scale = 0.75f, rotation = rotation)
-        ARArrow(alpha = alpha1, scale = 1f, rotation = rotation)
+        ARArrow(alpha = alpha3, scale = 0.5f, rotation = continuousRotation)
+        ARArrow(alpha = alpha2, scale = 0.75f, rotation = continuousRotation)
+        ARArrow(alpha = alpha1, scale = 1f, rotation = continuousRotation)
     }
 }
 
@@ -194,6 +249,7 @@ fun ARArrow(alpha: Float, scale: Float, rotation: Float) {
             .size((80 * scale).dp)
             .scale(glow * scale)
             .alpha(alpha)
+            .rotate(rotation)
     )
 }
 

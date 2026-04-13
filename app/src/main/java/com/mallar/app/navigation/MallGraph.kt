@@ -38,6 +38,20 @@ class MallGraph(
         return shops.filter { it.name.lowercase().contains(lower) }
     }
 
+    // Find the nearest node geometrically (used when a store isn't explicitly mapped by name)
+    fun findNearestNodeId(x: Float, y: Float): Int? {
+        var minDst = Float.MAX_VALUE
+        var nearest: Int? = null
+        for (node in nodes.values) {
+            val d = hypot(node.x - x, node.y - y)
+            if (d < minDst) {
+                minDst = d
+                nearest = node.id
+            }
+        }
+        return nearest
+    }
+
     // ── A* Algorithm ──────────────────────────────────────────────────────────
 
     fun findPath(fromPointId: Int, toPointId: Int): List<NavNode>? {
