@@ -114,7 +114,7 @@ class MallARViewModel(application: Application) : AndroidViewModel(application) 
             val fromPointId = if (fromShopId != null) {
                 graph?.pointIdForShop(fromShopId)
             } else {
-                graph?.pointIdForShop(6) // fallback strictly to ZARA point
+                graph?.pointIdForShop(68) // fallback strictly to ZARA main point
             }
 
             // 3. Compute A* path if we resolved both points 
@@ -207,7 +207,7 @@ class MallARViewModel(application: Application) : AndroidViewModel(application) 
                 
                 val detectedShopId = graph?.shops
                     ?.find { it.name.equals(finalMatchName, ignoreCase = true) }
-                    ?.shopId ?: 34 // ZARA shopId is 34
+                    ?.shopId ?: 68 // ZARA shopId is 68 in mall_graph.json
 
                 val detected = if (matchName != null) {
                     DetectedLocation(id = matchName, name = matchName,
@@ -300,11 +300,17 @@ class MallARViewModel(application: Application) : AndroidViewModel(application) 
         // Group consecutive nodes into segments by direction
         var segStart = path[0]
         var segDist  = 0f
+        val passingShops = mutableListOf<String>()
 
         for (i in 1 until path.size) {
             val prev = path[i - 1]
             val curr = path[i]
             segDist += hypot(curr.x - prev.x, curr.y - prev.y)
+
+            val shopName = graph?.shops?.find { it.pointId == curr.id }?.name
+            if (shopName != null && !shopName.equals(destName, ignoreCase = true)) {
+                if (!passingShops.contains(shopName)) passingShops.add(shopName)
+            }
 
             val isLast = i == path.size - 1
 
@@ -339,10 +345,12 @@ class MallARViewModel(application: Application) : AndroidViewModel(application) 
                     instruction = instruction,
                     distance    = metres,
                     direction   = if (isLast) NavDirection.ARRIVAL else dir,
-                    pathAngle   = geometricBearing
+                    pathAngle   = geometricBearing,
+                    passingStores = passingShops.toList()
                 ))
                 segStart = curr
                 segDist  = 0f
+                passingShops.clear()
             }
         }
 

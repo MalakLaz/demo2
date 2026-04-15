@@ -333,7 +333,9 @@ fun DirectionInstructionCard(
     onPrevious: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onNext() }, // Secret manual override for testing without walking
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(10.dp)
@@ -408,17 +410,41 @@ fun DirectionInstructionCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Next step button
-            Button(
-                onClick = onNext,
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = TealPrimary),
-                shape = RoundedCornerShape(25.dp)
+            // Auto-detect indicator
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 50.dp)
+                    .background(Color(0xFFF0F5F5), RoundedCornerShape(25.dp))
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Navigation, contentDescription = null,
-                    modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Next Step", fontWeight = FontWeight.SemiBold)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = TealPrimary,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    val passingText = if (step.passingStores.isNotEmpty()) {
+                        "Passing: " + step.passingStores.joinToString(", ")
+                    } else {
+                        "Auto-detecting your steps..."
+                    }
+                    
+                    Text(
+                        text = passingText,
+                        fontWeight = FontWeight.Medium,
+                        color = TealPrimary,
+                        fontSize = 13.sp,
+                        maxLines = 3,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
