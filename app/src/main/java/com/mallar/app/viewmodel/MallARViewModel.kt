@@ -160,8 +160,13 @@ class MallARViewModel(application: Application) : AndroidViewModel(application) 
             val step = steps[idx]
             if (step.distance > 0) {
                 // Deduct roughly 1 meter per step (standard pedestrian spacing)
-                steps[idx] = step.copy(distance = step.distance - 1)
+                val newDist = step.distance - 1
+                steps[idx] = step.copy(distance = newDist)
                 _uiState.value = state.copy(navigationSteps = steps)
+                
+                if (newDist == 0 && steps[idx].direction != NavDirection.ARRIVAL) {
+                    nextNavigationStep()
+                }
             } else if (step.direction != NavDirection.ARRIVAL) {
                 nextNavigationStep()
             }

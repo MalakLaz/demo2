@@ -303,7 +303,8 @@ fun StoreInfoTopCard(
                                 Text("${step.distance}m", fontSize = 12.sp,
                                     color = TealPrimary, fontWeight = FontWeight.SemiBold)
                             } else {
-                                Text("Arrived!", fontSize = 12.sp,
+                                val text = if (step.direction == NavDirection.ARRIVAL) "Arrived!" else "Turn now"
+                                Text(text, fontSize = 12.sp,
                                     color = TealPrimary, fontWeight = FontWeight.SemiBold)
                             }
                         }
